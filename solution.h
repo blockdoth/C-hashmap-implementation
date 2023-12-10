@@ -40,3 +40,6 @@ void set_hash_function(HashMap *hm, unsigned int (*hash_function)(char *key));
 void count_words(FILE * stream);
 void destroyData(void *data);
 
+
+void dontOverWriteCallback(void *old_data, void *new_data);
+void overWriteCallback(void *old_data, void *new_data);

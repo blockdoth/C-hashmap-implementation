@@ -50,8 +50,10 @@ void insert_data(HashMap *hm, char *key, void *data, ResolveCollisionCallback re
     unsigned int hash_key = hm->hash(key) % hm->num_buckets;
     Entry *entry = hm->entries[hash_key];
     //check if the list is empty
+    char* key_copy = malloc(sizeof(char) * (strlen(key) + 1));
+    strcpy(key_copy, key);
     if(entry->key == NULL){
-        entry->key = key;
+        entry->key = key_copy;
         entry->value = data;
         hm->size++;
     }else{
@@ -60,7 +62,7 @@ void insert_data(HashMap *hm, char *key, void *data, ResolveCollisionCallback re
             if(resolve_collision != NULL){
                 resolve_collision(entry->value, data);
             }
-            free(key);
+            free(key_copy);
             return;
         }
         while(entry->next != NULL ){
@@ -70,14 +72,14 @@ void insert_data(HashMap *hm, char *key, void *data, ResolveCollisionCallback re
                 }else{
                     entry->value = data;
                 }
-                free(key);
+                free(key_copy);
                 return;
             }
             entry = entry->next;
         }
         //create new entry
         Entry *new_entry = newEntry();
-        new_entry->key = key;
+        new_entry->key = key_copy;
         new_entry->value = data;
         entry->next = new_entry;
         hm->size++;
@@ -99,6 +101,7 @@ void remove_data(HashMap *hm, char *key, DestroyDataCallback destroy_data) {
     }
     if (prev_entry == NULL) {
         if(entry->next == NULL){
+            free(entry->key);
             entry->key = NULL;
             if (destroy_data != NULL) {
                 destroy_data(entry->value);
@@ -117,6 +120,7 @@ void remove_data(HashMap *hm, char *key, DestroyDataCallback destroy_data) {
     if (destroy_data != NULL) {
         destroy_data(entry->value);
     }
+    free(entry->key);
     free(entry);
     hm->size--;
 }
@@ -160,21 +164,22 @@ unsigned int hash(char *key){
 }
 
 void rehash(HashMap *hm){
-    int growth_factor = 2;
 
     Entry **old_entries = hm->entries;
-    size_t old_capacity = hm->num_buckets;
-    hm->num_buckets = hm->num_buckets * growth_factor;
     hm->entries = malloc(sizeof(Entry*) * hm->num_buckets);
     hm->size = 0;
     for(size_t i = 0; i < hm->num_buckets; i++){
         hm->entries[i] = newEntry();
     }
-    for(size_t i = 0; i < old_capacity; i++){
+    for(size_t i = 0; i < hm->num_buckets; i++){
         Entry *entry = old_entries[i];
         if(entry->key != NULL){
             while(entry != NULL){
+                Entry *rehashed_entry = ;
+
+                remove_data(hm,entry->key,NULL);
                 insert_data(hm,entry->key,entry->value,NULL);
+                free(key);
                 entry = entry->next;
             }
         }
@@ -199,12 +204,12 @@ int memSize(HashMap *hm) {
 }
 
 
-void printResult(char *key, void *data);
+void printCallback(char *key, void *data);
 void increaseCount(void *old_data, void *new_data);
 
 
 void count_words(FILE * stream){
-    char word_buffer[100];
+    char word[100];
     int c;
     HashMap *hm = create_hashmap(1000);
 
@@ -212,21 +217,20 @@ void count_words(FILE * stream){
         if (isalpha(c)) {
             int i = 0;
             do {
-                word_buffer[i++] = c;
+                word[i++] = c;
                 c = fgetc(stream);
             } while (isalpha(c) || isdigit(c));
-            word_buffer[i] = '\0';
+            word[i] = '\0';
             int* count = malloc(sizeof(int));
             *count = 1;
-            char* key = malloc(sizeof(char) * (strlen(word_buffer) + 1));
-            insert_data(hm, strcpy(key, word_buffer), count, increaseCount);
+            insert_data(hm, word, count, increaseCount);
         }
     }
-    iterate(hm, printResult);
+    iterate(hm, printCallback);
     delete_hashmap(hm, destroyData);
 }
 //void (*callback)(char *key, void *data)
-void printResult(char *key, void *data){
+void printCallback(char *key, void *data){
     printf("%s: ", key);
     printf("%d\n",  *(int*)data);
 }
@@ -241,3 +245,9 @@ void destroyData(void *data){
     free(data);
 }
 
+void dontOverWriteCallback(void *old_data, void *new_data){
+    //free(new_data);
+}
+void overWriteCallback(void *old_data, void *new_data){
+//    free(old_data);
+}

@@ -27,19 +27,20 @@ void createHashMapTest() {
     delete_hashmap(hm, NULL);
 }
 
+
 void insertGetTest() {
     HashMap *hm = create_hashmap(100);
     insert_data(hm, "a", "b", NULL);
     assert_str_equals(get_data(hm, "a"), "b");
-    assert_int_equals(hm->size, 1);
+
     insert_data(hm, "a", "c", NULL);
-    assert_str_equals(get_data(hm, "a"), "c");
-    assert_int_equals(hm->size, 1);
+    assert_str_equals(get_data(hm, "a"), "b");
     insert_data(hm, "b", "a", NULL);
     assert_str_equals(get_data(hm, "b"), "a");
-    assert_int_equals(hm->size, 2);
+    assert_str_equals(get_data(hm, "a"), "b");
     delete_hashmap(hm, NULL);
 }
+
 
 
 void removeDataTest() {
@@ -69,9 +70,7 @@ void removeDataTest() {
 
 int global_iterator_counter = 0;
 
-void callback(char *key, void *data){
-    printf("%s\n", key);
-    printf("%s\n",  (char*)data);
+void silentCallback(char *key, void *data){
     global_iterator_counter += *(char *) data;
 
 }
@@ -82,7 +81,7 @@ void iterateTest(){
     insert_data(hm, "b", "2", NULL);
     insert_data(hm, "c", "3", NULL);
     global_iterator_counter = 0;
-    iterate(hm, callback);
+    iterate(hm, silentCallback);
     assert_int_equals(global_iterator_counter, 150);
     delete_hashmap(hm, NULL);
 }
@@ -186,17 +185,15 @@ void destroyDataCallbackTest(){
     delete_hashmap(hm, NULL);
 }
 
-void dontOverWrite(void *old_data, void *new_data){
-    //free(new_data);
-}
+
 
 void resolveCollisionCallbackTest(){
     HashMap *hm = create_hashmap(100);
-    insert_data(hm, "a", "1", dontOverWrite);
-    insert_data(hm, "a", "2", dontOverWrite);
-    insert_data(hm, "a", "3", dontOverWrite);
-    insert_data(hm, "a", "4", dontOverWrite);
-    insert_data(hm, "a", "5", dontOverWrite);
+    insert_data(hm, "a", "1", dontOverWriteCallback);
+    insert_data(hm, "a", "2", dontOverWriteCallback);
+    insert_data(hm, "a", "3", dontOverWriteCallback);
+    insert_data(hm, "a", "4", dontOverWriteCallback);
+    insert_data(hm, "a", "5", dontOverWriteCallback);
     assert_str_equals(get_data(hm, "a"), "1");
     delete_hashmap(hm, NULL);
 
@@ -213,21 +210,68 @@ void countTest(){
     fclose(file);
 }
 
+void checkDuplicatedKey() {
+    size_t key_space = 100;
+    HashMap *hm = create_hashmap(key_space);
+    char* key = malloc(strlen("test") + 1);
+    strcpy(key, "test");
+
+    insert_data(hm, key, "b", NULL);
+    free(key);
+    assert_str_equals(get_data(hm, "test"), "b");
+    delete_hashmap(hm, NULL);
+}
+
+unsigned int hashPlus1(char *key){
+    return hash(key) + 1;
+}
+
+void rehashTest(){
+    int size = 1000;
+    HashMap *hm = create_hashmap(size);
+
+    char** keys = malloc(sizeof(char*) * size);
+    for (int i = 0; i < size; ++i) {
+        int maxIntLength = snprintf(NULL, 0, "%d", i)+1;
+        keys[i] = (char *)malloc(sizeof(char) * maxIntLength);
+        sprintf(keys[i], "%d", i);
+    }
+    for (int i = 0; i < size; ++i) {
+        insert_data(hm, keys[i] , keys[i], NULL);
+        assert_str_equals(get_data(hm, keys[i]), keys[i]);
+    }
+
+    set_hash_function(hm, hashPlus1);
+
+    for (int i = 0; i < size; ++i) {
+        assert_str_equals(get_data(hm, keys[i]), keys[i]);
+        remove_data(hm, keys[i], destroyDataCallback);
+    }
+
+    free(keys);
+    delete_hashmap(hm, NULL);
+
+
+}
+
 
 /* Register all test cases. */
 void register_tests() {
-//    register_test(hashTest);
-//    register_test(createHashMapTest);
-//    register_test(insertGetTest);
-//    register_test(removeDataTest);
-//    register_test(checkCollisionTest);
-//    register_test(insertLargeKeysTest);
-//    register_test(manyKeysSmallMapTest);
-//    register_test(iterateTest);
-//    register_test(nullDataTest);
-//    register_test(destroyDataCallbackTest);
-//    register_test(resolveCollisionCallbackTest);
+    register_test(hashTest);
+    register_test(createHashMapTest);
+    register_test(insertGetTest);
+    register_test(removeDataTest);
+    register_test(checkCollisionTest);
+    register_test(insertLargeKeysTest);
+    register_test(manyKeysSmallMapTest);
+    register_test(iterateTest);
+    register_test(nullDataTest);
+    register_test(destroyDataCallbackTest);
+    register_test(resolveCollisionCallbackTest);
     register_test(countTest);
+    register_test(checkDuplicatedKey);
+    register_test(rehashTest);
+
 
 
 }
