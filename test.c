@@ -227,31 +227,30 @@ unsigned int hashPlus1(char *key){
 }
 
 void rehashTest(){
-    int size = 1000;
-    HashMap *hm = create_hashmap(size);
+    int map_size = 10000;
+    int key_count = 2000;
+    HashMap *hm = create_hashmap(map_size);
 
-    char** keys = malloc(sizeof(char*) * size);
-    for (int i = 0; i < size; ++i) {
+    char** keys = malloc(sizeof(char*) * key_count);
+    for (int i = 0; i < key_count; ++i) {
         int maxIntLength = snprintf(NULL, 0, "%d", i)+1;
         keys[i] = (char *)malloc(sizeof(char) * maxIntLength);
         sprintf(keys[i], "%d", i);
     }
-    for (int i = 0; i < size; ++i) {
+    for (int i = 0; i < key_count; ++i) {
         insert_data(hm, keys[i] , keys[i], NULL);
         assert_str_equals(get_data(hm, keys[i]), keys[i]);
     }
 
     set_hash_function(hm, hashPlus1);
 
-    for (int i = 0; i < size; ++i) {
+    for (int i = 0; i < key_count; ++i) {
         assert_str_equals(get_data(hm, keys[i]), keys[i]);
         remove_data(hm, keys[i], destroyDataCallback);
     }
 
     free(keys);
     delete_hashmap(hm, NULL);
-
-
 }
 
 
