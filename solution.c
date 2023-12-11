@@ -4,14 +4,16 @@
 
 HashMap *create_hashmap(size_t key_space){
     HashMap *hm = calloc(1,sizeof(HashMap));
+
     hm->entries = calloc(key_space,sizeof(Entry*));
+    hm->num_buckets = key_space;
+    hm->size = 0;
+
     set_hash_function(hm, hash);
+
     for(size_t i = 0; i < key_space; i++){
         hm->entries[i] = newEntry();
     }
-
-    hm->num_buckets = key_space;
-    hm->size = 0;
     return hm;
 }
 
@@ -37,40 +39,31 @@ void delete_hashmap(HashMap *hm, DestroyDataCallback destroy_data) {
                 free(entry);
                 entry = next_entry;
             }
-            free(entry);
-        }else{
-            free(entry); // Free the memory for the entry
         }
+        free(entry);
     }
-    free(hm->entries);  // Free the memory for the hashmap
-    free(hm);  // Free the memory for the hashmap
+    free(hm->entries);
+    free(hm);
 }
 
 void insert_data(HashMap *hm, char *key, void *data, ResolveCollisionCallback resolve_collision ) {
     unsigned int hash_key = hm->hash(key) % hm->num_buckets;
     Entry *entry = hm->entries[hash_key];
-    //check if the list is empty
+
     char* key_copy = malloc(sizeof(char) * (strlen(key) + 1));
     strcpy(key_copy, key);
+
     if(entry->key == NULL){
+        //check if the list is empty
         entry->key = key_copy;
         entry->value = data;
         hm->size++;
     }else{
         //check if key already exists in the list
-        if(strcmp(entry->key,key) == 0){
-            if(resolve_collision != NULL){
-                resolve_collision(entry->value, data);
-            }
-            free(key_copy);
-            return;
-        }
         while(entry->next != NULL ){
             if(strcmp(entry->key,key) == 0) {
                 if (resolve_collision != NULL) {
                     resolve_collision(entry->value, data);
-                }else{
-                    entry->value = data;
                 }
                 free(key_copy);
                 return;
@@ -163,34 +156,59 @@ unsigned int hash(char *key){
     return hash;
 }
 
-void rehash(HashMap *hm){
 
-    Entry **old_entries = hm->entries;
-    hm->entries = malloc(sizeof(Entry*) * hm->num_buckets);
-    hm->size = 0;
-    for(size_t i = 0; i < hm->num_buckets; i++){
-        hm->entries[i] = newEntry();
-    }
-    for(size_t i = 0; i < hm->num_buckets; i++){
-        Entry *entry = old_entries[i];
-        if(entry->key != NULL){
-            while(entry != NULL){
-                Entry *rehashed_entry = ;
-
-                remove_data(hm,entry->key,NULL);
-                insert_data(hm,entry->key,entry->value,NULL);
-                free(key);
-                entry = entry->next;
-            }
-        }
-    }
-    free(old_entries);
-}
 
 void set_hash_function(HashMap *hm, unsigned int (*hash_function)(char *key)){
-    hm->hash = hash_function;
     if(hm->size > 0){
-        rehash(hm);
+        //Get all keys
+        char** keys = malloc(sizeof(char*) * hm->size);
+
+        for(size_t i = 0; i < hm->num_buckets; i++){
+            Entry *entry = hm->entries[i];
+            if(entry->key != NULL){
+                while(entry != NULL){
+                    keys[i] = entry->key;
+                    entry = entry->next;
+                }
+            }
+        }
+        for( int i = 0; i < hm->size; i++){
+            remove_data(hm,keys[i],NULL);
+        }
+
+        hm->hash = hash_function;
+
+        for( int i = 0; i < hm->size; i++){
+            remove_data(hm,keys[i],NULL);
+        }
+        insert_data(hm,keys[i],get_data(hm,keys[i]),NULL);
+
+        hm->entries = malloc(sizeof(Entry*) * hm->num_buckets);
+        hm->size = 0;
+        for(size_t i = 0; i < hm->num_buckets; i++){
+            hm->entries[i] = newEntry();
+        }
+
+
+
+
+
+        for(size_t i = 0; i < hm->num_buckets; i++){
+            Entry *entry = old_entries[i];
+            if(entry->key != NULL){
+                while(entry != NULL){
+                    Entry *rehashed_entry = ;
+
+                    remove_data(hm,entry->key,NULL);
+                    insert_data(hm,entry->key,entry->value,NULL);
+                    //free(key);
+                    entry = entry->next;
+                }
+            }
+        }
+        free(old_entries);
+    }else{
+        hm->hash = hash_function;
     }
 }
 
