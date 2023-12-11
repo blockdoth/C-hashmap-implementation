@@ -14,6 +14,7 @@ HashMap *create_hashmap(size_t key_space){
     for(size_t i = 0; i < key_space; i++){
         hm->entries[i] = newEntry();
     }
+
     return hm;
 }
 
@@ -93,7 +94,9 @@ void remove_data(HashMap *hm, char *key, DestroyDataCallback destroy_data) {
         entry = entry->next;
     }
     if (prev_entry == NULL) {
+        // First entry in the list
         if(entry->next == NULL){
+            // Only entry in the list
             free(entry->key);
             entry->key = NULL;
             if (destroy_data != NULL) {
@@ -108,6 +111,7 @@ void remove_data(HashMap *hm, char *key, DestroyDataCallback destroy_data) {
             entry->next = NULL;
         }
     } else {
+        // Entry in the middle or end of the list
         prev_entry->next = entry->next;
     }
     if (destroy_data != NULL) {
@@ -227,27 +231,37 @@ void increaseCount(void *old_data, void *new_data);
 
 
 void count_words(FILE * stream){
-    char word[100];
+    char word[20000];
     int c;
     HashMap *hm = create_hashmap(1000);
-
+    char** keys = malloc(sizeof(char*) * 1000);
+    int index = 0;
     while ((c = fgetc(stream)) != EOF) {
-        if (isalpha(c)) {
+        if (isalpha(c) || isdigit(c)) {
             int i = 0;
             do {
                 word[i++] = c;
                 c = fgetc(stream);
             } while (isalpha(c) || isdigit(c));
+
+            // Null-terminate the word
             word[i] = '\0';
-            int* count = malloc(sizeof(int));
+            int* count = malloc(sizeof (int));
             *count = 1;
-            insert_data(hm, word, count, increaseCount);
+            char* key = malloc(sizeof (char) * (strlen(word) + 1));
+            insert_data(hm, strcpy(key, word), count, increaseCount);
+            keys[index++] = key;
         }
     }
     iterate(hm, printCallback);
-    delete_hashmap(hm, destroyData);
+    //printf("Total number of words: %zu\n", hm->size);
+    for (int i = 0; i < index; ++i) {
+        free(keys[i]);
+    }
+
+    delete_hashmap(hm, NULL);
 }
-//void (*callback)(char *key, void *data)
+
 void printCallback(char *key, void *data){
     printf("%s: ", key);
     printf("%d\n",  *(int*)data);
