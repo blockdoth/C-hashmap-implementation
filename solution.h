@@ -20,8 +20,8 @@ typedef struct HashMap{
 } HashMap;
 
 
-typedef void (*ResolveCollisionCallback)(void *old_data, void *new_data);
-typedef void (*DestroyDataCallback)(void *data);
+typedef void* (*ResolveCollisionCallback)(void *old_data, void *new_data);
+typedef void* (*DestroyDataCallback)(void *data);
 
 HashMap *create_hashmap(size_t key_space);
 void delete_hashmap(HashMap *hm, DestroyDataCallback destroy_data);
@@ -37,9 +37,11 @@ int memSize(HashMap *hm);
 
 unsigned int hash(char *key);
 void set_hash_function(HashMap *hm, unsigned int (*hash_function)(char *key));
+
 void count_words(FILE * stream);
-void destroyData(void *data);
+void printCallback(char *key, void *data);
+void* increaseCount(void *old_data, void *new_data);
 
-
-void dontOverWriteCallback(void *old_data, void *new_data);
-void overWriteCallback(void *old_data, void *new_data);
+void* destroyDataCallback(void *data);
+void* dontOverWriteCallback(void *old_data, void *new_data);
+void* overWriteCallback(void *old_data, void *new_data);

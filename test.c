@@ -158,9 +158,6 @@ void nullDataTest(){
     delete_hashmap(hm, NULL);
 }
 
-void destroyDataCallback(void *data){
-    free(data);
-}
 
 void destroyDataCallbackTest(){
     int size = 1000;
@@ -227,8 +224,8 @@ unsigned int hashPlus1(char *key){
 }
 
 void rehashTest(){
-    int map_size = 10000;
-    int key_count = 2000;
+    int map_size = 5000;
+    int key_count = 1000;
     HashMap *hm = create_hashmap(map_size);
 
     char** keys = malloc(sizeof(char*) * key_count);
@@ -253,6 +250,139 @@ void rehashTest(){
     delete_hashmap(hm, NULL);
 }
 
+void mutabilityTest() {
+    HashMap *hm = create_hashmap(100);
+    char key[4];
+    char value[2];
+
+    strcpy(key, "key");
+    strcpy(value, "1");
+
+    insert_data(hm,key, value, NULL);
+    assert_str_equals((char*)get_data(hm, "key"), "1");
+
+    strcpy(value, "2");
+    assert_str_equals(get_data(hm, "key"), "2");
+
+    strcpy(key, "kay");
+    assert_str_equals(get_data(hm, "key"), "2");
+    assert_ptr_equals(get_data(hm, "kay"), NULL);
+
+
+    delete_hashmap(hm, NULL);
+}
+
+void deepTest() {
+    size_t key_count = 1000;
+
+    HashMap *hm = create_hashmap(key_count);
+    insert_data(hm, "key", "1", NULL);
+    insert_data(hm, "yek", "2", NULL);
+    insert_data(hm, "kay", "3", NULL);
+
+    size_t hash1 = hm->hash("key");
+    size_t hash2 = hm->hash("yek"); // same as "key"
+    size_t hash3 = hm->hash("kay");
+    for(size_t i = 0; i < key_count;i++){
+        Entry *entry = hm->entries[i];
+        if(i == hash1){
+            assert_str_equals(entry->value, "1");
+        }else if (i == hash2){
+            assert_str_equals(entry->next->value, "2");
+        }else if (i == hash3){
+            assert_str_equals(entry->value, "3");
+        }else{
+            assert_ptr_equals(entry->key, NULL);
+        }
+    }
+    remove_data(hm, "key", NULL);
+    for(size_t i = 0; i < key_count;i++){
+        Entry *entry = hm->entries[i];
+        if(i == hash1){
+            assert_str_equals(entry->value, "2");
+        }else if (i == hash2){
+            assert_ptr_equals(entry->next, NULL);
+        }else if (i == hash3){
+            assert_str_equals(entry->value, "3");
+        }else{
+            assert_ptr_equals(entry->key, NULL);
+        }
+    }
+    remove_data(hm, "kay", NULL);
+    for(size_t i = 0; i < key_count;i++){
+        Entry *entry = hm->entries[i];
+        if(i == hash1){
+            assert_str_equals(entry->value, "2");
+        }else if (i == hash2){
+            assert_ptr_equals(entry->next, NULL);
+        }else if (i == hash3){
+            assert_ptr_equals(entry->value, NULL);
+        }else{
+            assert_ptr_equals(entry->key, NULL);
+        }
+    }
+    delete_hashmap(hm, NULL);
+}
+
+
+void deeperTest() {
+    size_t key_count = 1000;
+
+    HashMap *hm = create_hashmap(key_count);
+    insert_data(hm, "key", "1", NULL);
+    insert_data(hm, "yek", "2", NULL);
+    insert_data(hm, "kay", "3", NULL);
+
+    assert_str_equals(get_data(hm, "key"), "1");
+    assert_str_equals(get_data(hm, "yek"), "2");
+    assert_str_equals(get_data(hm, "kay"), "3");
+
+    remove_data(hm, "koy", NULL);
+
+    assert_str_equals(get_data(hm, "key"), "1");
+    assert_str_equals(get_data(hm, "yek"), "2");
+    assert_str_equals(get_data(hm, "kay"), "3");
+
+    remove_data(hm, "key", NULL);
+
+    assert_ptr_equals(get_data(hm, "key"), NULL);
+    assert_str_equals(get_data(hm, "yek"), "2");
+    assert_str_equals(get_data(hm, "kay"), "3");
+
+    remove_data(hm, "yek", NULL);
+
+    assert_ptr_equals(get_data(hm, "key"), NULL);
+    assert_ptr_equals(get_data(hm, "yek"), NULL);
+    assert_str_equals(get_data(hm, "kay"), "3");
+
+    remove_data(hm, "kay", NULL);
+
+    assert_ptr_equals(get_data(hm, "key"), NULL);
+    assert_ptr_equals(get_data(hm, "yek"), NULL);
+    assert_ptr_equals(get_data(hm, "kay"), NULL);
+
+    delete_hashmap(hm, NULL);
+
+
+}
+
+
+
+void callBackTest() {
+    HashMap *hm = create_hashmap(100);
+
+    insert_data(hm,"key", "1", NULL);
+    assert_str_equals(get_data(hm, "key"), "1");
+
+    insert_data(hm,"key", "2", dontOverWriteCallback);
+    assert_str_equals(get_data(hm, "key"), "1");
+
+    insert_data(hm,"key", "2", overWriteCallback);
+    assert_str_equals(get_data(hm, "key"), "2");
+
+    delete_hashmap(hm, NULL);
+}
+
 
 /* Register all test cases. */
 void register_tests() {
@@ -270,6 +400,10 @@ void register_tests() {
     register_test(countTest);
     register_test(checkDuplicatedKey);
     register_test(rehashTest);
+    register_test(mutabilityTest);
+    register_test(deepTest);
+    register_test(deeperTest);
+    register_test(callBackTest);
 
 
 

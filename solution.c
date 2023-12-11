@@ -34,7 +34,7 @@ void delete_hashmap(HashMap *hm, DestroyDataCallback destroy_data) {
             while(entry != NULL){
                 Entry *next_entry = entry->next;
                 if(destroy_data != NULL){
-                    destroy_data(entry->value);
+                    entry->value = destroy_data(entry->value);
                 }
                 free(entry->key);
                 free(entry);
@@ -64,7 +64,9 @@ void insert_data(HashMap *hm, char *key, void *data, ResolveCollisionCallback re
         while(entry->next != NULL ){
             if(strcmp(entry->key,key) == 0) {
                 if (resolve_collision != NULL) {
-                    resolve_collision(entry->value, data);
+                    entry->value = resolve_collision(entry->value, data);
+                }else{
+                    free(data);
                 }
                 free(key_copy);
                 return;
@@ -100,8 +102,8 @@ void remove_data(HashMap *hm, char *key, DestroyDataCallback destroy_data) {
             free(entry->key);
             entry->key = NULL;
             if (destroy_data != NULL) {
-                destroy_data(entry->value);
-            } else {
+                entry->value = destroy_data(entry->value);
+            }else{
                 entry->value = NULL;
             }
             hm->size--;
@@ -134,6 +136,9 @@ void *get_data(HashMap *hm, char *key){
             return entry->value;
         }
         entry = entry->next;
+        if (entry == NULL) {
+            return NULL;
+        }
     }
     return NULL;
 }
@@ -166,51 +171,33 @@ void set_hash_function(HashMap *hm, unsigned int (*hash_function)(char *key)){
     if(hm->size > 0){
         //Get all keys
         char** keys = malloc(sizeof(char*) * hm->size);
-
+        void** data = calloc(sizeof(void*), hm->size);
+        size_t index = 0;
         for(size_t i = 0; i < hm->num_buckets; i++){
             Entry *entry = hm->entries[i];
             if(entry->key != NULL){
                 while(entry != NULL){
-                    keys[i] = entry->key;
+                    if(entry->key != NULL){
+                        keys[index] = malloc(sizeof(char) * (strlen(entry->key) + 1));
+                        strcpy(keys[index], entry->key);
+                        data[index++] = entry->value;
+                    }
                     entry = entry->next;
                 }
             }
         }
-        for( int i = 0; i < hm->size; i++){
+        for(size_t i = 0; i < hm->size; i++){
             remove_data(hm,keys[i],NULL);
         }
 
         hm->hash = hash_function;
 
-        for( int i = 0; i < hm->size; i++){
-            remove_data(hm,keys[i],NULL);
+        for(size_t i = 0; i < index; i++){
+            insert_data(hm,keys[i], data[i],NULL);
+            free(keys[i]);
         }
-        insert_data(hm,keys[i],get_data(hm,keys[i]),NULL);
-
-        hm->entries = malloc(sizeof(Entry*) * hm->num_buckets);
-        hm->size = 0;
-        for(size_t i = 0; i < hm->num_buckets; i++){
-            hm->entries[i] = newEntry();
-        }
-
-
-
-
-
-        for(size_t i = 0; i < hm->num_buckets; i++){
-            Entry *entry = old_entries[i];
-            if(entry->key != NULL){
-                while(entry != NULL){
-                    Entry *rehashed_entry = ;
-
-                    remove_data(hm,entry->key,NULL);
-                    insert_data(hm,entry->key,entry->value,NULL);
-                    //free(key);
-                    entry = entry->next;
-                }
-            }
-        }
-        free(old_entries);
+        free(keys);
+        free(data);
     }else{
         hm->hash = hash_function;
     }
@@ -226,15 +213,11 @@ int memSize(HashMap *hm) {
 }
 
 
-void printCallback(char *key, void *data);
-void increaseCount(void *old_data, void *new_data);
-
-
 void count_words(FILE * stream){
-    char word[20000];
+    char word[65535]; // Assuming a maximum word length of 99 characters
     int c;
-    HashMap *hm = create_hashmap(1000);
-    char** keys = malloc(sizeof(char*) * 1000);
+    HashMap *hm = create_hashmap(65535);
+
     int index = 0;
     while ((c = fgetc(stream)) != EOF) {
         if (isalpha(c) || isdigit(c)) {
@@ -243,23 +226,15 @@ void count_words(FILE * stream){
                 word[i++] = c;
                 c = fgetc(stream);
             } while (isalpha(c) || isdigit(c));
-
-            // Null-terminate the word
             word[i] = '\0';
+
             int* count = malloc(sizeof (int));
             *count = 1;
-            char* key = malloc(sizeof (char) * (strlen(word) + 1));
-            insert_data(hm, strcpy(key, word), count, increaseCount);
-            keys[index++] = key;
+            insert_data(hm, word , count, increaseCount);
         }
     }
     iterate(hm, printCallback);
-    //printf("Total number of words: %zu\n", hm->size);
-    for (int i = 0; i < index; ++i) {
-        free(keys[i]);
-    }
-
-    delete_hashmap(hm, NULL);
+    delete_hashmap(hm, destroyDataCallback);
 }
 
 void printCallback(char *key, void *data){
@@ -267,19 +242,23 @@ void printCallback(char *key, void *data){
     printf("%d\n",  *(int*)data);
 }
 
-void increaseCount(void *old_data, void *new_data){
-    int *count = (int *)old_data;
+void* increaseCount(void *old_data, void *new_data){
+    int* count = malloc(sizeof (int));
+    *count = *(int*)old_data + 1;
+    free(old_data);
     free(new_data);
-    (*count)++;
+    return count;
 }
 
-void destroyData(void *data){
+void* destroyDataCallback(void *data){
     free(data);
+    return NULL;
 }
 
-void dontOverWriteCallback(void *old_data, void *new_data){
-    //free(new_data);
+void* dontOverWriteCallback(void *old_data, void *new_data){
+    return old_data;
 }
-void overWriteCallback(void *old_data, void *new_data){
-//    free(old_data);
+void* overWriteCallback(void *old_data, void *new_data){
+    return new_data;
 }
+
