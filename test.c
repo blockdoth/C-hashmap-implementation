@@ -6,7 +6,61 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
+//Utility functions
+
+int global_iterator_counter = 0;
+
+void silentCallback(char *key, void *data){
+    global_iterator_counter += *(char *) data;
+}
+
+void* increaseCount(void *old_data, void *new_data){
+    int *count = (int *)old_data;
+    free(new_data);
+    (*count)++;
+    return count;
+}
+
+void printCallback(char *key, void *data){
+    printf("%s: ", key);
+    printf("%d\n",  *(int*)data);
+}
+
+int memSize(HashMap *hm) {
+    size_t mem_size = sizeof(HashMap);
+    for (size_t i = 0; i < hm->num_buckets; i++) {
+        mem_size += sizeof(Entry);
+    }
+    return mem_size;
+}
+
+//Count words in file example
+
+void count_words(FILE * stream){
+    char word[65535]; // Assuming a maximum word length of 99 characters
+    int c;
+    HashMap *hm = create_hashmap(65535);
+
+    int index = 0;
+    while ((c = fgetc(stream)) != EOF) {
+        if (isalpha(c) || isdigit(c)) {
+            int i = 0;
+            do {
+                word[i++] = c;
+                c = fgetc(stream);
+            } while (isalpha(c) || isdigit(c));
+            word[i] = '\0';
+
+            int* count = malloc(sizeof (int));
+            *count = 1;
+            insert_data(hm, word , count, increaseCount);
+        }
+    }
+    iterate(hm, printCallback);
+    delete_hashmap(hm, destroyDataCallback);
+}
 
 
 void hashTest() {
@@ -27,21 +81,18 @@ void createHashMapTest() {
     delete_hashmap(hm, NULL);
 }
 
-
 void insertGetTest() {
     HashMap *hm = create_hashmap(100);
-    insert_data(hm, "a", "b", NULL);
+    insert_data(hm, "a", "b", overWriteCallback);
     assert_str_equals(get_data(hm, "a"), "b");
 
-    insert_data(hm, "a", "c", NULL);
+    insert_data(hm, "a", "c", overWriteCallback);
     assert_str_equals(get_data(hm, "a"), "b");
-    insert_data(hm, "b", "a", NULL);
+    insert_data(hm, "b", "a", overWriteCallback);
     assert_str_equals(get_data(hm, "b"), "a");
     assert_str_equals(get_data(hm, "a"), "b");
     delete_hashmap(hm, NULL);
 }
-
-
 
 void removeDataTest() {
     HashMap *hm = create_hashmap(100);
@@ -49,13 +100,13 @@ void removeDataTest() {
     remove_data(hm, "a", NULL);
     assert_int_equals(hm->size, 0);
     assert_ptr_equals(get_data(hm, "a"), NULL);
-    insert_data(hm, "a", "b", NULL);
+    insert_data(hm, "a", "b", overWriteCallback);
     remove_data(hm, "a", NULL);
     assert_int_equals(hm->size, 0);
     assert_ptr_equals(get_data(hm, "a"), NULL);
     assert_int_equals(memSize(hm), prev_mem_size);
-    insert_data(hm, "b", "c", NULL);
-    insert_data(hm, "a", "b", NULL);
+    insert_data(hm, "b", "c", overWriteCallback);
+    insert_data(hm, "a", "b", overWriteCallback);
     assert_int_equals(hm->size, 2);
     assert_ptr_equals(get_data(hm, "b"), "c");
     remove_data(hm, "b", NULL);
@@ -68,18 +119,11 @@ void removeDataTest() {
     delete_hashmap(hm, NULL);
 }
 
-int global_iterator_counter = 0;
-
-void silentCallback(char *key, void *data){
-    global_iterator_counter += *(char *) data;
-
-}
-
 void iterateTest(){
     HashMap *hm = create_hashmap(100);
-    insert_data(hm, "a", "1", NULL);
-    insert_data(hm, "b", "2", NULL);
-    insert_data(hm, "c", "3", NULL);
+    insert_data(hm, "a", "1", overWriteCallback);
+    insert_data(hm, "b", "2", overWriteCallback);
+    insert_data(hm, "c", "3", overWriteCallback);
     global_iterator_counter = 0;
     iterate(hm, silentCallback);
     assert_int_equals(global_iterator_counter, 150);
@@ -88,13 +132,13 @@ void iterateTest(){
 
 void checkCollisionTest(){
     HashMap *hm = create_hashmap(100);
-    insert_data(hm, "2222", "test", NULL);
+    insert_data(hm, "2222", "test", overWriteCallback);
     assert_str_equals(get_data(hm, "2222"), "test");
-    insert_data(hm, "dd", "test", NULL);
-    insert_data(hm, "dda", "test", NULL);
-    insert_data(hm, "xx", "test", NULL);
-    insert_data(hm, "<<<<", "test", NULL);
-    insert_data(hm, "PPP", "test", NULL);
+    insert_data(hm, "dd", "test", overWriteCallback);
+    insert_data(hm, "dda", "test", overWriteCallback);
+    insert_data(hm, "xx", "test", overWriteCallback);
+    insert_data(hm, "<<<<", "test", overWriteCallback);
+    insert_data(hm, "PPP", "test", overWriteCallback);
 
     delete_hashmap(hm, NULL);
 }
@@ -110,7 +154,7 @@ void insertLargeKeysTest(){
         sprintf(keys[i], "%d", i);
     }
     for (int i = 0; i < size; ++i) {
-        insert_data(hm, keys[i] , keys[i], NULL);
+        insert_data(hm, keys[i] , keys[i], overWriteCallback);
     }
     assert_int_equals(hm->size, size);
     for (int i = 0; i < size; ++i) {
@@ -122,7 +166,6 @@ void insertLargeKeysTest(){
     free(keys);
     delete_hashmap(hm, NULL);
 }
-
 
 void manyKeysSmallMapTest(){
     int hm_size = 10;
@@ -136,7 +179,7 @@ void manyKeysSmallMapTest(){
         sprintf(keys[i], "%d", i);
     }
     for (int i = 0; i < keys_count; ++i) {
-        insert_data(hm, keys[i] , keys[i], NULL);
+        insert_data(hm, keys[i] , keys[i], overWriteCallback);
     }
     assert_int_equals(hm->size, keys_count);
     for (int i = 0; i < keys_count; ++i) {
@@ -149,17 +192,12 @@ void manyKeysSmallMapTest(){
     delete_hashmap(hm, NULL);
 }
 
-
 void nullDataTest(){
     HashMap *hm = create_hashmap(100);
 
-    insert_data(hm, "a", NULL, NULL);
+    insert_data(hm, "a", NULL, overWriteCallback);
     assert_ptr_equals(get_data(hm, "a"), NULL);
     delete_hashmap(hm, NULL);
-}
-
-void destroyDataCallback(void *data){
-    free(data);
 }
 
 void destroyDataCallbackTest(){
@@ -173,7 +211,7 @@ void destroyDataCallbackTest(){
         sprintf(keys[i], "%d", i);
     }
     for (int i = 0; i < size; ++i) {
-        insert_data(hm, keys[i] , keys[i], NULL);
+        insert_data(hm, keys[i] , keys[i], overWriteCallback);
     }
     assert_int_equals(hm->size, size);
     for (int i = 0; i < size; ++i) {
@@ -184,7 +222,6 @@ void destroyDataCallbackTest(){
     free(keys);
     delete_hashmap(hm, NULL);
 }
-
 
 
 void resolveCollisionCallbackTest(){
@@ -216,14 +253,10 @@ void checkDuplicatedKey() {
     char* key = malloc(strlen("test") + 1);
     strcpy(key, "test");
 
-    insert_data(hm, key, "b", NULL);
+    insert_data(hm, key, "b", overWriteCallback);
     free(key);
     assert_str_equals(get_data(hm, "test"), "b");
     delete_hashmap(hm, NULL);
-}
-
-unsigned int hashPlus1(char *key){
-    return hash(key) + 1;
 }
 
 void rehashTest(){
@@ -238,11 +271,11 @@ void rehashTest(){
         sprintf(keys[i], "%d", i);
     }
     for (int i = 0; i < key_count; ++i) {
-        insert_data(hm, keys[i] , keys[i], NULL);
+        insert_data(hm, keys[i] , keys[i], overWriteCallback);
         assert_str_equals(get_data(hm, keys[i]), keys[i]);
     }
 
-    set_hash_function(hm, hashPlus1);
+    set_hash_function(hm, hashPlusOne);
 
     for (int i = 0; i < key_count; ++i) {
         assert_str_equals(get_data(hm, keys[i]), keys[i]);
@@ -270,9 +303,6 @@ void register_tests() {
     register_test(countTest);
     register_test(checkDuplicatedKey);
     register_test(rehashTest);
-
-
-
 }
 
 
