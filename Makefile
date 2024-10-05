@@ -7,7 +7,7 @@ CC = gcc
 CFLAGS = -g -Wall -Werror -Wextra -Wno-unused-parameter -Wno-unused-variable -pedantic
 LDFLAGS += -lpthread -lrt
 OBJS = test.c gest.c solution.c
-TARGET = test
+TARGET = build/test
 FEATURES= "-DSEQUENTIAL"
 
 .PHONY: test valgrind submit clean
@@ -15,6 +15,7 @@ FEATURES= "-DSEQUENTIAL"
 default: test
 
 compile : $(OBJS)
+	@mkdir build
 	$(CC) $(OBJS) $(LDFLAGS) $(CFLAGS) $(FEATURES) -o $(TARGET)
 
 test: compile
